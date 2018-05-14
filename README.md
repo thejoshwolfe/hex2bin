@@ -44,7 +44,7 @@ Comments start with `;` and end at the end of the line.
 
 ### Byte
 
-A byte is encoded as a sequence of two nibbles, where a nibble is `0`-`9`, `A-F`, `a-f`.
+A byte is encoded as a sequence of two nibbles, where a nibble is `0`-`9`, `A`-`F`, `a`-`f`.
 
 ```
 05 0a 0f 14 ; four bytes with decimal values 5, 10, 15, 20
