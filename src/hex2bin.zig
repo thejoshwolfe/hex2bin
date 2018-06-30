@@ -12,9 +12,9 @@ pub fn main() !void {
     const allocator = &arena_allocator.allocator;
 
     var args = std.os.args();
-    _ = try (args.next(allocator) ?? return usage());
-    const input_path_str = try (args.next(allocator) ?? return usage());
-    const output_path_str = try (args.next(allocator) ?? return usage());
+    _ = try (args.next(allocator) orelse return usage());
+    const input_path_str = try (args.next(allocator) orelse return usage());
+    const output_path_str = try (args.next(allocator) orelse return usage());
     if (args.next(allocator) != null) return usage();
 
     var input_file = try std.os.File.openRead(allocator, input_path_str);
@@ -32,23 +32,23 @@ const Translator = struct {
     const Self = this;
 
     input_path_str: []const u8,
-    input_file: &std.os.File,
+    input_file: *std.os.File,
     input_file_stream: std.io.FileInStream,
     buffered_input_stream: std.io.BufferedInStream(std.io.FileInStream.Error),
-    input: &std.io.InStream(std.io.FileInStream.Error),
+    input: *std.io.InStream(std.io.FileInStream.Error),
 
-    output_file: &std.os.File,
+    output_file: *std.os.File,
     output_file_stream: std.io.FileOutStream,
     buffered_output_stream: std.io.BufferedOutStream(std.io.FileOutStream.Error),
-    output: &std.io.OutStream(std.io.FileOutStream.Error),
+    output: *std.io.OutStream(std.io.FileOutStream.Error),
 
-    allocator: &std.mem.Allocator,
+    allocator: *std.mem.Allocator,
     line_number: usize,
     column_number: usize,
     output_cursor: usize,
     put_back: ?u8,
 
-    pub fn init(self: &Self, input_path_str: []const u8, input_file: &std.os.File, output_file: &std.os.File, allocator: &std.mem.Allocator) void {
+    pub fn init(self: *Self, input_path_str: []const u8, input_file: *std.os.File, output_file: *std.os.File, allocator: *std.mem.Allocator) void {
         // FIXME: return a new object once we have https://github.com/zig-lang/zig/issues/287
 
         self.input_path_str = input_path_str;
@@ -68,7 +68,7 @@ const Translator = struct {
         self.allocator = allocator;
     }
 
-    pub fn doIt(self: &Self) !void {
+    pub fn doIt(self: *Self) !void {
         defer self.buffered_output_stream.flush() catch {};
         var too_close_for_nibble = false;
         while (true) {
@@ -86,7 +86,7 @@ const Translator = struct {
                 if (too_close_for_nibble) return self.parseError();
                 // next char must be the rest of the byte
                 const byteValue = (u8(nibble) << 4) |
-                    u8(parseNibble(self.readByte() catch '-') ?? return self.parseError());
+                    u8(parseNibble(self.readByte() catch '-') orelse return self.parseError());
                 try self.writeByte(byteValue);
                 // and then a char which is not a hex byte
                 too_close_for_nibble = true;
@@ -127,7 +127,7 @@ const Translator = struct {
         }
     }
 
-    fn readByte(self: &Self) !u8 {
+    fn readByte(self: *Self) !u8 {
         const b = if (self.put_back) |b| b: {
             self.put_back = null;
             break :b b;
@@ -135,23 +135,23 @@ const Translator = struct {
         self.column_number += 1;
         return b;
     }
-    fn putBackByte(self: &Self, b: u8) void {
+    fn putBackByte(self: *Self, b: u8) void {
         std.debug.assert(self.put_back == null);
         self.put_back = b;
         self.column_number -= 1;
     }
 
-    fn writeByte(self: &Self, b: u8) !void {
+    fn writeByte(self: *Self, b: u8) !void {
         try self.output.writeByte(b);
         self.output_cursor += 1;
     }
 
-    fn parseError(self: &Self) !void {
+    fn parseError(self: *Self) !void {
         std.debug.warn("{}:{}:{}: error: parse error\n", self.input_path_str, self.line_number, self.column_number);
         return error.ParseError;
     }
 
-    fn parseU64Hex(self: &Self) !u64 {
+    fn parseU64Hex(self: *Self) !u64 {
         var result: u64 = 0;
         var nibble_count: u32 = 0;
         while (nibble_count < 16) : (nibble_count += 1) {
@@ -170,10 +170,10 @@ const Translator = struct {
 
 fn parseNibble(c: u8) ?u4 {
     if ('0' <= c and c <= '9')
-        return u4(c - '0');
+        return @truncate(u4, c - '0');
     if ('A' <= c and c <= 'F')
-        return u4(c - 'A') + 10;
+        return @truncate(u4, c - 'A') + 10;
     if ('a' <= c and c <= 'f')
-        return u4(c - 'a') + 10;
+        return @truncate(u4, c - 'a') + 10;
     return null;
 }

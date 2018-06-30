@@ -57,6 +57,7 @@ The nibbles that encode a byte must be immediately adjacent to each other.
 ```
 
 Nibbles from different bytes must not be immediately adjacent to each other.
+This is to make sure there's no confusion about big/little endian byte order.
 
 ```
 0000 ; error
