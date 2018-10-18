@@ -1,8 +1,8 @@
 const std = @import("std");
 
-fn usage() !void {
+fn usage() noreturn {
     std.debug.warn("usage: INPUT.hex OUTPUT.bin\n");
-    return error.Usage;
+    std.os.exit(1);
 }
 
 pub fn main() !void {
@@ -12,15 +12,15 @@ pub fn main() !void {
     const allocator = &arena_allocator.allocator;
 
     var args = std.os.args();
-    _ = try (args.next(allocator) orelse return usage());
-    const input_path_str = try (args.next(allocator) orelse return usage());
-    const output_path_str = try (args.next(allocator) orelse return usage());
-    if (args.next(allocator) != null) return usage();
+    _ = try (args.next(allocator) orelse usage());
+    const input_path_str = try (args.next(allocator) orelse usage());
+    const output_path_str = try (args.next(allocator) orelse usage());
+    if (args.next(allocator) != null) usage();
 
-    var input_file = try std.os.File.openRead(allocator, input_path_str);
+    var input_file = try std.os.File.openRead(input_path_str);
     defer input_file.close();
 
-    var output_file = try std.os.File.openWrite(allocator, output_path_str);
+    var output_file = try std.os.File.openWrite(output_path_str);
     defer output_file.close();
 
     var translator: Translator = undefined;
@@ -28,19 +28,19 @@ pub fn main() !void {
     try translator.doIt();
 }
 
-const Translator = struct {
-    const Self = this;
+const Translator = struct.{
+    const Self = @This();
 
     input_path_str: []const u8,
     input_file: *std.os.File,
-    input_file_stream: std.io.FileInStream,
-    buffered_input_stream: std.io.BufferedInStream(std.io.FileInStream.Error),
-    input: *std.io.InStream(std.io.FileInStream.Error),
+    input_file_stream: std.os.File.InStream,
+    buffered_input_stream: std.io.BufferedInStream(std.os.File.InStream.Error),
+    input: *std.io.InStream(std.os.File.InStream.Error),
 
     output_file: *std.os.File,
-    output_file_stream: std.io.FileOutStream,
-    buffered_output_stream: std.io.BufferedOutStream(std.io.FileOutStream.Error),
-    output: *std.io.OutStream(std.io.FileOutStream.Error),
+    output_file_stream: std.os.File.OutStream,
+    buffered_output_stream: std.io.BufferedOutStream(std.os.File.OutStream.Error),
+    output: *std.io.OutStream(std.os.File.OutStream.Error),
 
     allocator: *std.mem.Allocator,
     line_number: usize,
@@ -53,13 +53,13 @@ const Translator = struct {
 
         self.input_path_str = input_path_str;
         self.input_file = input_file;
-        self.input_file_stream = std.io.FileInStream.init(self.input_file);
-        self.buffered_input_stream = std.io.BufferedInStream(std.io.FileInStream.Error).init(&self.input_file_stream.stream);
+        self.input_file_stream = self.input_file.inStream();
+        self.buffered_input_stream = std.io.BufferedInStream(std.os.File.InStream.Error).init(&self.input_file_stream.stream);
         self.input = &self.buffered_input_stream.stream;
 
         self.output_file = output_file;
-        self.output_file_stream = std.io.FileOutStream.init(self.output_file);
-        self.buffered_output_stream = std.io.BufferedOutStream(std.io.FileOutStream.Error).init(&self.output_file_stream.stream);
+        self.output_file_stream = self.output_file.outStream();
+        self.buffered_output_stream = std.io.BufferedOutStream(std.os.File.OutStream.Error).init(&self.output_file_stream.stream);
         self.output = &self.buffered_output_stream.stream;
 
         self.line_number = 1;
